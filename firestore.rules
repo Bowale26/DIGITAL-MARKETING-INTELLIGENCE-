@@ -1,0 +1,135 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Default Deny Catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 1. Global Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isOwner(ownerId) { return isSignedIn() && request.auth.uid == ownerId; }
+    function getUserData() { 
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : null; 
+    }
+    function hasRole(role) { 
+      let data = getUserData();
+      return isSignedIn() && data != null && data.role == role; 
+    }
+    function isAdmin() { 
+      return isSignedIn() && (hasRole('ADMIN') || request.auth.token.email == 'isadewum@gmail.com'); 
+    }
+    function isCounsel() { return hasRole('LEGAL_COUNSEL'); }
+
+    // 2. Intake Maturation Rules
+    function isValidIntake(data) {
+      return data.keys().hasAll(['clientId', 'serviceId', 'status', 'createdAt']) &&
+             data.keys().size() <= 10 &&
+             data.clientId == request.auth.uid &&
+             data.serviceId is string &&
+             data.status in ['draft', 'submitted', 'in_review', 'action_required', 'closed'] &&
+             data.createdAt == request.time &&
+             (data.get('narrative', '') is string && data.get('narrative', '').size() <= 5000);
+    }
+
+    match /matters/{matterId} {
+      allow get: if isOwner(existing().clientId) || isAdmin();
+      allow list: if isSignedIn() && (resource.data.clientId == request.auth.uid || isAdmin());
+      
+      allow create: if isSignedIn() && 
+                      isValidId(matterId) && 
+                      isValidIntake(incoming());
+                      
+      allow update: if isSignedIn() && (
+        // Action: Submit for Review
+        (existing().status == 'draft' && 
+         incoming().status == 'submitted' && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+         incoming().updatedAt == request.time) ||
+         
+        // Action: Attorney Review (Admin Only)
+        (isAdmin() && incoming().diff(existing()).affectedKeys().hasAny(['status', 'internalNotes'])) ||
+        
+        // Action: User Response
+        (isOwner(existing().clientId) && 
+         existing().status == 'action_required' &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['narrative', 'updatedAt']) &&
+         incoming().updatedAt == request.time)
+      );
+      
+      allow delete: if isAdmin(); // Matters are never deleted by clients to preserve audit trails
+    }
+
+    // 3. Incident Protocols (User-visible for reporters)
+    match /incidents/{incidentId} {
+      allow read: if isAdmin() || isCounsel() || (isSignedIn() && resource.data.reporterId == request.auth.uid);
+      allow create: if isSignedIn() || isAdmin();
+    }
+    
+    // 4. User Profiles
+    function isValidUser(data) {
+      return data.email is string && 
+             data.email.size() <= 256 &&
+             data.name is string &&
+             data.name.size() <= 256 &&
+             data.role in ['USER', 'ADMIN', 'COMPLIANCE_OFFICER', 'LEGAL_COUNSEL', 'EXECUTIVE'];
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming());
+      allow update: if (isOwner(userId) || isAdmin()) && (
+        // Action: User Profile Update
+        (isOwner(userId) && 
+         incoming().diff(existing()).affectedKeys().hasAny(['name', 'email', 'plan', 'status', 'trialEndDate', 'projectsCreated', 'intent', 'featureUsage', 'updatedAt']) &&
+         incoming().role == existing().role) || // Role immutability for users
+        
+        // Action: Admin Overrides
+        (isAdmin() && incoming().diff(existing()).affectedKeys().hasAny(['role', 'status', 'updatedAt']))
+      );
+    }
+    
+    // 5. Admin Registry (Internal Only)
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin(); 
+    }
+
+    // 6. Governance Proposals
+    function isValidProposal(data) {
+      return data.proposal_id is string &&
+             data.rule_target is string &&
+             data.description is string &&
+             data.description.size() <= 5000 &&
+             data.justification is string &&
+             data.justification.size() <= 5000 &&
+             data.risk_level is number &&
+             data.risk_level >= 1 && data.risk_level <= 5 &&
+             data.requester_id == request.auth.uid;
+    }
+
+    match /proposals/{proposalId} {
+      allow list, get: if isSignedIn();
+      allow create: if isSignedIn() && isValidProposal(incoming()) && proposalId == incoming().proposal_id;
+      allow update: if isAdmin();
+    }
+
+    // 7. Governance Logs
+    match /governance_logs/{logId} {
+      allow list, get: if isSignedIn();
+      allow create: if isSignedIn();
+    }
+
+    // 8. Governance Settings
+    match /governance_settings/{settingsId} {
+      allow get, list: if isSignedIn();
+      allow write: if isSignedIn(); // Allow signed in users for this demo/dashboard
+    }
+  }
+}
