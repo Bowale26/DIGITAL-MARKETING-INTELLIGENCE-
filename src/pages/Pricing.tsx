@@ -78,7 +78,7 @@ export default function Pricing() {
               billingCycle === 'yearly' ? "text-slate-900 dark:text-white" : "text-slate-400"
             )}
           >
-            Yearly <span className="text-[#FF6B00]">Save 17%</span>
+            Yearly <span className="text-[#FF6B00]">Save 20%</span>
           </button>
           <motion.div 
             layoutId="activeCycle"
@@ -131,7 +131,7 @@ export default function Pricing() {
               </div>
               <div className="flex items-baseline gap-1 focus-within:">
                  <span className="text-5xl font-display font-black text-slate-900 dark:text-white">
-                    ${getPrice('19.99', '14.99')}
+                    ${getPrice('24.99', '19.99')}
                  </span>
                  <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">/ Month</span>
               </div>
@@ -158,7 +158,7 @@ export default function Pricing() {
               </div>
               <div className="flex items-baseline gap-1">
                  <span className="text-5xl font-display font-black text-white">
-                    ${getPrice('199.99', '149.99')}
+                    ${getPrice('249.99', '199.99')}
                  </span>
                  <span className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">/ Month</span>
               </div>
