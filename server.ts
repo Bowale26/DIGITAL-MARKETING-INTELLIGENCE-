@@ -9,8 +9,7 @@ import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
 
-import { DevOpsService, SecurityGuardrails } from "./src/services/devopsService.js";
-import { GoogleGenAI } from "@google/genai";
+import { DevOpsService } from "./src/services/devopsService.ts";
 
 dotenv.config();
 
@@ -22,7 +21,7 @@ const db = getFirestore(appInstance, firebaseConfig.firestoreDatabaseId);
 
 async function startServer() {
   const app = express();
-  const port = Number(process.env.PORT) || 8080;
+  const PORT = 3000;
 
   // Webhook needs raw body - MUST be defined before express.json()
   app.post("/api/webhooks/stripe", express.raw({ type: 'application/json' }), async (req, res) => {
@@ -84,8 +83,9 @@ async function startServer() {
   app.use(express.json());
   app.use(cors());
 
-  // --- DEVOPS PILLAR: OBSERVABILITY ---
+  // --- DEVOPS PILLAR: MAINTENANCE ---
   app.get("/api/devops/status", DevOpsService.getHealthStatus);
+  app.post("/api/system/purge", DevOpsService.purgeSystemCache);
 
   // --- STRIPE INTEGRATION ---
   let stripe: Stripe | null = null;
@@ -102,69 +102,6 @@ async function startServer() {
   if (process.env.SENDGRID_API_KEY) {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
   }
-
-  // --- SOCIAL MEDIA AI GENERATION ---
-  app.post("/api/social/generate", async (req, res) => {
-    try {
-      const { prompt, brandVoice, options } = req.body;
-      const { tone = 'Professional', length = 'medium', keywords = [] } = options || {};
-
-      if (!process.env.GEMINI_API_KEY) {
-        throw new Error("GEMINI_API_KEY is not configured on the server.");
-      }
-
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-      const aiPrompt = `Generate high-performance social media post variations based on the following topic: "${prompt}".
-      
-      Brand Voice base: ${brandVoice}.
-      Applied Tone Override: ${tone}.
-      Desired Length: ${length}.
-      Mandatory Keywords to Include: ${keywords.join(', ') || 'None specified'}.
-      
-      Requirements:
-      1. Provide variations for Instagram (visual-focused), LinkedIn (professional/thought-leadership), and TikTok (engaging/short).
-      2. Each variation MUST include a compelling Call to Action (CTA) and adhere to the ${tone} tone.
-      3. The content length should be ${length}.
-      4. Explicitly include keywords: ${keywords.join(', ') || 'N/A'}.
-      5. Suggest 3-5 optimal hashtags per platform.
-      6. Suggest an optimal posting time based on algorithmic trends.
-      
-      Output MUST be valid JSON with the following structure:
-      {
-        "variations": [
-          {
-            "platform": "Instagram",
-            "content": "...",
-            "hashtags": ["#tag1", "#tag2"],
-            "cta": "...",
-            "optimalTime": "..."
-          }
-        ]
-      }`;
-
-      const response = await ai.models.generateContent({ 
-        model: "gemini-3-flash-preview",
-        contents: aiPrompt,
-        config: {
-          responseMimeType: "application/json"
-        }
-      });
-      
-      const text = response.text;
-      if (!text) throw new Error("AI returned empty response");
-      
-      const data = JSON.parse(text.trim());
-
-      // Security Guardrail: Validate structure
-      SecurityGuardrails.validateSchema(data, ['variations']);
-
-      res.json(data);
-    } catch (error: any) {
-      console.error("Social Generation Error:", error);
-      res.status(500).json({ error: error.message });
-    }
-  });
 
   // --- API ROUTES ---
 
@@ -570,8 +507,8 @@ async function startServer() {
     });
   }
 
-  app.listen(port, '0.0.0.0', () => {
-    console.log(`Digital Marketing Intelligence app listening on ${port}`);
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Command Center Active: http://localhost:${PORT}`);
   });
 }
 

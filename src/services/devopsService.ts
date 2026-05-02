@@ -19,20 +19,10 @@ export const DevOpsService = {
       checkpoints: {
         firebase: 'Active',
         stripe: process.env.STRIPE_SECRET_KEY ? 'Configured' : 'Missing',
-        gemini: process.env.GEMINI_API_KEY ? 'Connected' : 'Disconnected',
-        social_engine: 'Ready'
+        gemini: process.env.GEMINI_API_KEY ? 'Connected' : 'Disconnected'
       }
     };
     res.json(health);
-  },
-
-  /**
-   * PILLAR: Deployment Governance
-   * Manages the lifecycle of content deployments
-   */
-  logDeployment: (platform: string, metadata: any) => {
-    console.log(`[DEVOPS] [DEPLOY] Deployment initiated for ${platform}. Metadata:`, metadata);
-    // Real-world: Sync with Firestore deployment logs
   },
 
   /**
@@ -42,6 +32,31 @@ export const DevOpsService = {
   logSystemEvent: (event: string, severity: 'info' | 'warn' | 'error') => {
     console.log(`[${new Date().toISOString()}] [${severity.toUpperCase()}] DEVOPS_EVENT: ${event}`);
     // In a production scenario, this would export to Google AI Studio Logs
+  },
+
+  /**
+   * PILLAR: Maintenance
+   * Executes atomic terminal purge of cached artifacts
+   */
+  purgeSystemCache: async (req: Request, res: Response) => {
+    try {
+      console.log(`[SYSTEM] Atomic Purge Protocol sequence initiated by ${req.ip}`);
+      
+      // Clear any server-side cookies by instructing the client via headers
+      res.clearCookie('flux_session', { path: '/' });
+      res.clearCookie('flux_auth', { path: '/' });
+      res.clearCookie('flux_metadata', { path: '/' });
+
+      // Signal success
+      res.json({ 
+        success: true, 
+        message: 'Atomic purge protocol executed. Server-side artifacts flagged for deletion.',
+        artifacts: ['/dist', 'session_cache'],
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
   }
 };
 

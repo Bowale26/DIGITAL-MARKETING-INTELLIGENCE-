@@ -61,7 +61,6 @@ import {
 import { db, auth } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../context/FirebaseContext';
 import { cn } from '../lib/utils';
-import { clearSystemStorage } from '../services/apiService';
 
 interface StaticRule {
   id: string;
@@ -1923,6 +1922,49 @@ export default function Governance() {
   const [scanMode, setScanMode] = useState<'ON_DEMAND' | 'WEEKLY'>('ON_DEMAND');
   const [isValidating, setIsValidating] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<any>(null);
+  const [isPurging, setIsPurging] = useState(false);
+
+  const handlePurgeCache = async () => {
+    setIsPurging(true);
+    const logPath = 'governance_logs';
+    try {
+      await addDoc(collection(db, logPath), {
+        timestamp: serverTimestamp(),
+        message: "[CRITICAL] SYSTEM PURGE INITIATED: Clearing all cached vectors and cookie protocols.",
+        type: 'ALERT',
+        userId: auth.currentUser?.uid || 'SYSTEM'
+      });
+      
+      // Call server-side purge
+      await fetch('/api/system/purge', { method: 'POST' });
+    } catch (error) {
+      console.warn("Purge log or API failed, continuing with client-side cleanup", error);
+      // We still want to clear client side even if server or logging fails
+    }
+
+    setTimeout(() => {
+      // 1. Clear Local Storage
+      localStorage.clear();
+      // 2. Clear Session Storage
+      sessionStorage.clear();
+      // 3. Clear Cookies
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i];
+          const eqPos = cookie.indexOf("=");
+          const name = eqPos > -1 ? cookie.trim().substr(0, eqPos) : cookie.trim();
+          document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      }
+      // 4. Clear Cache Storage (Service Workers)
+      if ('caches' in window) {
+        caches.keys().then((names) => {
+          names.forEach(name => caches.delete(name));
+        });
+      }
+      // 5. Reload
+      window.location.reload();
+    }, 2000);
+  };
 
   // Form State
   const [formData, setFormData] = useState({
@@ -2257,52 +2299,34 @@ export default function Governance() {
                      )}
                   </div>
                </div>
+
+               {/* System Maintenance Section */}
+               <div className="p-8 bg-rose-500/5 border border-rose-500/20 rounded-[40px] space-y-6">
+                  <div className="flex items-center gap-4">
+                     <div className="p-3 bg-rose-500/20 rounded-2xl text-rose-500">
+                        <Cpu size={20} />
+                     </div>
+                     <div>
+                        <h4 className="text-[10px] font-black text-white uppercase tracking-widest">System Maintenance</h4>
+                        <p className="text-[8px] font-black text-rose-500 uppercase tracking-widest mt-1">LKP-005: Atomic Purge Protocol</p>
+                     </div>
+                  </div>
+                  <p className="text-[10px] font-mono font-bold text-slate-400 uppercase leading-relaxed">
+                     Executing a purge will clear all localized metadata cache and authentication cookies. This action is atomic and results in an immediate workspace reset.
+                  </p>
+                  <button 
+                    onClick={handlePurgeCache}
+                    disabled={isPurging}
+                    className={cn(
+                      "w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3",
+                      isPurging ? "bg-rose-500/50 text-white cursor-wait" : "bg-rose-500 text-white shadow-[0_10px_30px_rgba(244,63,94,0.3)] hover:scale-105 active:scale-95"
+                    )}
+                  >
+                    {isPurging ? <Activity size={16} className="animate-spin" /> : <Zap size={16} />}
+                    {isPurging ? "PURGING..." : "Purge All Cache & Cookies"}
+                  </button>
+               </div>
             </div>
-          </div>
-
-          {/* Maintenance Section */}
-          <div className="mt-24 pt-24 border-t border-white/5 space-y-12">
-             <div className="max-w-3xl">
-                <h2 className="text-3xl font-display font-black text-white italic tracking-tighter uppercase mb-2">Deep Maintenance Protocol</h2>
-                <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                   Initiate a hard reset of all local application states. This process purges LocalStorage, SessionStorage, Cache layers, and unregisters Service Workers. 
-                   <span className="text-rose-500 font-black ml-1 block mt-2 uppercase tracking-widest text-[10px]">Warning: This action will force an immediate system reload and logout.</span>
-                </p>
-             </div>
-
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="p-10 glass-panel rounded-[40px] border-white/10 space-y-6">
-                   <div className="flex items-center gap-4 text-orange-500">
-                      <Zap size={24} />
-                      <h3 className="text-lg font-black uppercase tracking-tight">Standard Purge</h3>
-                   </div>
-                   <p className="text-xs text-slate-500 font-medium">Clears application specific variables and UI state caches without affecting secure API credentials where possible.</p>
-                   <button 
-                     onClick={() => clearSystemStorage()}
-                     className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border border-white/10 hover:bg-white hover:text-slate-950 transition-all shadow-xl"
-                   >
-                      Initiate Standard Purge
-                   </button>
-                </div>
-
-                <div className="p-10 bg-rose-500/5 border border-rose-500/20 rounded-[40px] space-y-6">
-                   <div className="flex items-center gap-4 text-rose-500">
-                      <ShieldAlert size={24} />
-                      <h3 className="text-lg font-black uppercase tracking-tight">Full Neural Scrub</h3>
-                   </div>
-                   <p className="text-xs text-rose-400 font-medium">Destructive reset intended for severe synchronization failures. Manual browser cookie clearing is recommended after this step.</p>
-                   <button 
-                     onClick={async () => {
-                        if (confirm("Proceed with Full Neural Scrub? This will erase all local configurations.")) {
-                           await clearSystemStorage();
-                        }
-                     }}
-                     className="w-full py-4 bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-rose-900/40 hover:brightness-110 active:scale-95 transition-all"
-                   >
-                      Atomic Scrub
-                   </button>
-                </div>
-             </div>
           </div>
 
           {/* Bottom Workflow Timeline */}
