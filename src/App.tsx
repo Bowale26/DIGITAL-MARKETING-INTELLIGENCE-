@@ -28,6 +28,7 @@ import AdOrchestrator from './pages/AdOrchestrator';
 import MonetizationStudio from './pages/MonetizationStudio';
 import Governance from './pages/Governance';
 import MarketIntelligence from './pages/MarketIntelligence';
+import Leads from './pages/Leads';
 import ABTestingLab from './pages/ABTestingLab';
 import MarketingSuite from './pages/MarketingSuite';
 import MarketingCalendar from './pages/MarketingCalendar';
@@ -39,6 +40,8 @@ import Cancel from './pages/Cancel';
 import { Globe, Server, Palette, Layers, ShoppingBag, Share2, Users, Target, Search, PenTool, BarChart3, Zap, Folder, CreditCard, LifeBuoy, Star, Smartphone, Award, Circle } from 'lucide-react';
 import AuthPage from './pages/AuthPage';
 import Pricing from './pages/Pricing';
+import LeadDetails from './pages/LeadDetails';
+import { LeadProvider } from './context/LeadContext';
 
 const ServicePlaceholder = ({ title, desc, icon }: { title: string, desc: string, icon: any }) => (
   <div className="space-y-6">
@@ -66,7 +69,8 @@ export default function App() {
   }, []);
 
   return (
-    <Routes>
+    <LeadProvider>
+      <Routes>
       <Route path="/onboarding" element={<Onboarding />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/pricing" element={<Pricing />} />
@@ -76,7 +80,8 @@ export default function App() {
         <Route element={<Shell />}>
           <Route index element={<Dashboard />} />
           <Route path="strategy" element={<StrategyLab />} />
-          <Route path="pipeline" element={<LeadPipeline />} />
+          <Route path="pipeline" element={<Leads />} />
+          <Route path="pipeline/:id" element={<LeadDetails />} />
           
           {/* Detailed Service Views */}
           <Route path="services/:id" element={<ServiceDetail />} />
@@ -118,5 +123,6 @@ export default function App() {
         </Route>
       )}
     </Routes>
+    </LeadProvider>
   );
 }

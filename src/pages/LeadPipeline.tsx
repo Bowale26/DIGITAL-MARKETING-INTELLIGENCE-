@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -30,28 +30,31 @@ import { cn } from '../lib/utils';
 import { FunctionCallingService } from '../services/functionCallingService';
 import { AIService } from '../services/aiService';
 
+import { useLeads } from '../context/LeadContext';
+import { useNavigate } from 'react-router-dom';
+import { Lead } from '../data/leadData';
+
 const stages = ['New Leads', 'In Review', 'Engagement', 'Proposal', 'Closing'];
 
-const leadsData = [
-  { id: 'L1', name: 'James Wilson', company: 'Blue Coffee D2C', value: '$12,400', stage: 'New Leads', time: '2h ago', score: 92, source: 'Strategy Lab' },
-  { id: 'L2', name: 'Sarah Chen', company: 'NextAuth SaaS', value: '$8,500', stage: 'In Review', time: '5h ago', score: 78, source: 'Shopify Audit' },
-  { id: 'L3', name: 'Mike Ross', company: 'Ross & Co Legal', value: '$25,000', stage: 'Engagement', time: '1d ago', score: 85, source: 'Search Ads' },
-  { id: 'L4', name: 'Elena Gilbert', company: 'Mystic Health', value: '$15,000', stage: 'Proposal', time: '2d ago', score: 95, source: 'Direct Inbound' },
-  { id: 'L5', name: 'Harvey Specter', company: 'Pearson Hardman', value: '$50,000', stage: 'Closing', time: '3d ago', score: 88, source: 'Referral' },
-];
-
 export default function LeadPipeline() {
-  const [leads, setLeads] = useState(leadsData);
+  const { leads, addLead } = useLeads();
+  const navigate = useNavigate();
+  const [localLeads, setLocalLeads] = useState<Lead[]>([]);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [showCRMConfig, setShowCRMConfig] = useState(false);
   const [activeStage, setActiveStage] = useState('New Leads');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newLead, setNewLead] = useState({ name: '', company: '', value: '', source: 'Direct' });
+  const [newLead, setNewLead] = useState({ name: '', company: '', value: '', source: 'Direct', email: '', phone: '' });
   const [isExporting, setIsExporting] = useState(false);
   const [activeTab, setActiveTab] = useState<'pipeline' | 'ai-engine'>('pipeline');
   const [leadCriteria, setLeadCriteria] = useState("Enterprise SaaS companies with >50 employees, specifically marketing directors interested in AI automation.");
   const [aiStatus, setAiStatus] = useState<'idle' | 'searching' | 'analyzing' | 'done'>('idle');
   const [aiResults, setAiResults] = useState<any[]>([]);
+
+  // Sync global leads with local order/state if needed, or just use context leads
+  useEffect(() => {
+    setLocalLeads(leads);
+  }, [leads]);
 
   const handleAIRun = async (engine: string) => {
     setAiStatus('searching');
@@ -70,9 +73,9 @@ export default function LeadPipeline() {
       setAiStatus('analyzing');
       setTimeout(() => {
         setAiResults([
-          { id: 'AI1', name: 'Dominic Cobb', company: 'Inception Tech', value: '$85,000', stage: 'New Leads', time: 'Just now', score: 98, source: engine },
-          { id: 'AI2', name: 'Arthur Penhaligon', company: 'Clockwork Corp', value: '$42,500', stage: 'New Leads', time: 'Just now', score: 91, source: engine },
-          { id: 'AI3', name: 'Ariadne Miles', company: 'Maze Solutions', value: '$28,000', stage: 'New Leads', time: 'Just now', score: 87, source: engine }
+          { id: `AI1-${Date.now()}`, name: 'Dominic Cobb', company: 'Inception Tech', value: '$85,000', stage: 'New Leads', time: 'Just now', score: 98, source: engine, email: 'dominic@inception.tech', phone: '+1 (555) 000-0001', recentActivity: [] },
+          { id: `AI2-${Date.now()}`, name: 'Arthur Penhaligon', company: 'Clockwork Corp', value: '$42,500', stage: 'New Leads', time: 'Just now', score: 91, source: engine, email: 'arthur@clockwork.com', phone: '+1 (555) 000-0002', recentActivity: [] },
+          { id: `AI3-${Date.now()}`, name: 'Ariadne Miles', company: 'Maze Solutions', value: '$28,000', stage: 'New Leads', time: 'Just now', score: 87, source: engine, email: 'ariadne@maze.io', phone: '+1 (555) 000-0003', recentActivity: [] }
         ]);
         setAiStatus('done');
       }, 2000);
@@ -83,7 +86,7 @@ export default function LeadPipeline() {
   };
 
   const handleImportLeads = () => {
-    setLeads([...aiResults, ...leads]);
+    aiResults.forEach(l => addLead(l));
     setAiResults([]);
     setActiveTab('pipeline');
     alert("3 High-Intent AI targets imported to Pipeline.");
@@ -100,7 +103,11 @@ export default function LeadPipeline() {
     const leadId = e.dataTransfer.getData('leadId');
     if (!leadId) return;
 
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: targetStage } : l));
+    const leadToUpdate = leads.find(l => l.id === leadId);
+    if (leadToUpdate) {
+      // In a real app we'd call updateLead from context
+      setLocalLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: targetStage } : l));
+    }
     setDraggedLeadId(null);
   };
 
@@ -195,15 +202,16 @@ export default function LeadPipeline() {
   const handleAddLead = (e: React.FormEvent) => {
     e.preventDefault();
     const id = `L${leads.length + 1}`;
-    const lead = {
+    const lead: Lead = {
       ...newLead,
       id,
       stage: 'New Leads',
       time: 'Just now',
       score: Math.floor(Math.random() * 30) + 70,
+      recentActivity: []
     };
-    setLeads([lead, ...leads]);
-    setNewLead({ name: '', company: '', value: '', source: 'Direct' });
+    addLead(lead);
+    setNewLead({ name: '', company: '', value: '', source: 'Direct', email: '', phone: '' });
     setIsAddModalOpen(false);
   };
 
@@ -355,6 +363,14 @@ export default function LeadPipeline() {
                   <input required type="text" placeholder="Company Name" value={newLead.company} onChange={e => setNewLead({...newLead, company: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm focus:border-orange-500/50 outline-none" />
                 </div>
                 <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Contact Email</label>
+                  <input required type="email" placeholder="email@domain.com" value={newLead.email} onChange={e => setNewLead({...newLead, email: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm focus:border-orange-500/50 outline-none" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Mobile Access</label>
+                  <input required type="text" placeholder="+1 (555) 000-0000" value={newLead.phone} onChange={e => setNewLead({...newLead, phone: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm focus:border-orange-500/50 outline-none" />
+                </div>
+                <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Contract Potential</label>
                   <input required type="text" placeholder="e.g. $15,000" value={newLead.value} onChange={e => setNewLead({...newLead, value: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm focus:border-orange-500/50 outline-none" />
                 </div>
@@ -436,7 +452,7 @@ export default function LeadPipeline() {
          <PipelineStat 
            id="KPI-VAL-002"
            title="Total Pipeline Value" 
-           value={`$${(leads.reduce((acc, l) => acc + parseInt(l.value.replace(/[^0-9]/g, '')), 0) / 1000).toFixed(1)}k`} 
+           value={`$${(localLeads.reduce((acc, l) => acc + parseInt(l.value.replace(/[^0-9]/g, '') || '0'), 0) / 1000).toFixed(1)}k`} 
            change="+$42k" 
            icon={TrendingUp} 
            color="text-emerald-500" 
@@ -446,7 +462,7 @@ export default function LeadPipeline() {
          <PipelineStat 
            id="KPI-SCR-003"
            title="Avg. Lead Score" 
-           value={`${Math.round(leads.reduce((acc, l) => acc + l.score, 0) / leads.length)}/100`} 
+           value={`${localLeads.length > 0 ? Math.round(localLeads.reduce((acc, l) => acc + l.score, 0) / localLeads.length) : 0}/100`} 
            change="+4pts" 
            icon={Star} 
            color="text-[#00AEEF]" 
@@ -456,7 +472,7 @@ export default function LeadPipeline() {
          <PipelineStat 
            id="KPI-NEW-004"
            title="New Leads" 
-           value={`${leads.filter(l => l.time.includes('ago') || l.time === 'Just now').length}`} 
+           value={`${localLeads.filter(l => l.time.includes('ago') || l.time === 'Just now').length}`} 
            change="+2 today" 
            icon={ArrowUpRight} 
            color="text-indigo-500" 
@@ -510,7 +526,7 @@ export default function LeadPipeline() {
                     )}
                   >
                     {stage}
-                    <span className="text-[10px] py-0.5 px-2 bg-slate-100 dark:bg-slate-800 rounded-full">{leads.filter(l => l.stage === stage).length}</span>
+                    <span className="text-[10px] py-0.5 px-2 bg-slate-100 dark:bg-slate-800 rounded-full">{localLeads.filter(l => l.stage === stage).length}</span>
                   </button>
                   
                   {activeStage === stage && config && (
@@ -548,7 +564,7 @@ export default function LeadPipeline() {
         {/* Lead List */}
         <div className="lg:col-span-9 space-y-4">
            <AnimatePresence mode="popLayout">
-             {leads.filter(l => l.stage === activeStage).map((lead, i) => (
+             {localLeads.filter(l => l.stage === activeStage).map((lead, i) => (
                <motion.div 
                  key={lead.id}
                  layout
@@ -558,8 +574,9 @@ export default function LeadPipeline() {
                  transition={{ delay: i * 0.05 }}
                  draggable
                  onDragStart={(e: any) => handleDragStart(e, lead.id)}
+                 onClick={() => navigate(`/pipeline/${lead.id}`)}
                  className={cn(
-                   "card-agency p-8 flex flex-col md:flex-row items-center justify-between gap-8 group cursor-grab active:cursor-grabbing",
+                   "card-agency p-8 flex flex-col md:flex-row items-center justify-between gap-8 group cursor-grab active:cursor-grabbing hover:border-orange-500/30 transition-all",
                    draggedLeadId === lead.id && "opacity-50 grayscale scale-95"
                  )}
                >
@@ -607,7 +624,7 @@ export default function LeadPipeline() {
                          <Mail size={18} />
                        </button>
                        <button 
-                         onClick={(e) => { e.stopPropagation(); alert(`Accessing full dossier for ${lead.company}.`); }}
+                         onClick={(e) => { e.stopPropagation(); navigate(`/pipeline/${lead.id}`); }}
                          className="w-10 h-10 bg-slate-100 dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 hover:text-emerald-500 transition-all"
                        >
                          <ChevronRight size={18} />
@@ -618,7 +635,7 @@ export default function LeadPipeline() {
              ))}
            </AnimatePresence>
 
-           {leadsData.filter(l => l.stage === activeStage).length === 0 && (
+           {localLeads.filter(l => l.stage === activeStage).length === 0 && (
              <div className="text-center py-24 opacity-20">
                 <ShieldCheck size={64} className="mx-auto mb-4" />
                 <p className="text-xl font-bold uppercase tracking-tighter">No high-intent targets in this cluster</p>

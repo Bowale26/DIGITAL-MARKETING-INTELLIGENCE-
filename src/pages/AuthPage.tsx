@@ -4,13 +4,14 @@ import { Mail, Lock, User, ArrowRight, Sparkles, Building2, Briefcase, Globe, Us
 import { cn } from '../lib/utils';
 import { useAuth } from '../services/authService';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { checkout } from '../lib/stripe';
 
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -18,12 +19,17 @@ export default function AuthPage() {
     e.preventDefault();
     try {
       if (isSignUp) {
-        await signUp();
+        await signUp(email, password, name);
+        // After successful sign up, link to the 7-day trial (Stage 1: Protocol)
+        await checkout('price_1TSOJLBMbxh6jv0C9aEJBKRt', {
+          email: email,
+          serviceId: 'PROTOCOL'
+        });
       } else {
-        await signIn();
+        await signIn(email, password);
+        const redirect = searchParams.get('redirect') || '/';
+        navigate(redirect === 'pricing' ? '/pricing' : '/');
       }
-      const redirect = searchParams.get('redirect') || '/';
-      navigate(redirect === 'pricing' ? '/pricing' : '/');
     } catch (error) {
       console.error("Authentication failed", error);
     }

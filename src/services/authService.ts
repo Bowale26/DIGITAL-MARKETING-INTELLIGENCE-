@@ -4,7 +4,10 @@ import {
   GoogleAuthProvider, 
   signOut as firebaseSignOut, 
   onAuthStateChanged,
-  User as FirebaseUser
+  User as FirebaseUser,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile
 } from 'firebase/auth';
 import { 
   doc, 
@@ -135,17 +138,28 @@ class AuthService {
     };
   }
 
-  public async signIn() {
+  public async signIn(email?: string, password?: string) {
     try {
-      await signInWithPopup(auth, this.googleProvider);
+      if (email && password) {
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithPopup(auth, this.googleProvider);
+      }
     } catch (error) {
       console.error("Sign in failed", error);
       throw error;
     }
   }
 
-  public async signUp() {
-    return this.signIn();
+  public async signUp(email: string, password: string, name: string) {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(userCredential.user, { displayName: name });
+      // syncUser will be triggered by onAuthStateChanged
+    } catch (error) {
+      console.error("Sign up failed", error);
+      throw error;
+    }
   }
 
   public async signOut() {

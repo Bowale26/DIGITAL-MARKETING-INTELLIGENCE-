@@ -1,26 +1,26 @@
-# 🛡️ Security Specification: Flux Agency Legal Hub
+# 🛡️ Security Specification: Flux Agency Multi-Tiered Governance
 
-## 1. Data Invariants
-- An `Intake` matter MUST belong to a valid `clientId` and `serviceId`.
-- Only the `clientId` (owner) or `Admin` can read the `Intake` details.
-- Once a matter is set to `closed`, no further edits to `narrative` or `serviceId` are permitted.
-- `Incidents` (Breaches) are immutable once reported to authorities.
+## 1. Data Invariants (Revised)
+- **Role Isolation**: A `LEGAL_COUNSEL` can review `matters`, but only a `COMPLIANCE_OFFICER` can approve `proposals`.
+- **Temporal Trust**: All `updatedAt` and `createdAt` fields MUST be `request.time`.
+- **Identity Lock**: Once a `User` profile is associated with a `uid`, the `email` field is immutable to prevents account takeovers from altering history.
+- **Audit Integrity**: `governance_logs` are write-only for users (append-only) and read-only for auditors.
 
-## 2. The Dirty Dozen (Test Payloads)
+## 2. The Dirty Dozen (Role-Based Payloads)
 The following payloads MUST be rejected with `PERMISSION_DENIED`:
 
-1. **Identity Spoofing**: Attempt to create an `Intake` with a `clientId` that does not match `request.auth.uid`.
-2. **PII Leak**: Authenticated user attempts to `get` an `Intake` document belonging to another user.
-3. **Ghost Field Injection**: Attempt to `update` a matter while adding a hidden `isVerified: true` field.
-4. **State Shortcutting**: Attempt to change matter `status` from `draft` directly to `closed` without attorney review.
-5. **ID Poisoning**: Attempt to create a document with a 2MB string as the Document ID.
-6. **Timestamp Deception**: Attempt to set `createdAt` to a past date instead of `request.time`.
-7. **Privilege Escalation**: Attempt to update `isAdmin` field in a user profile.
-8. **Orphaned Record**: Attempt to create a matter for a non-existent `serviceId`.
-9. **Bulk Scrape**: Attempt to `list` all matters in the collection without a `where('clientId', '==', uid)` clause.
-10. **Shadow Update**: Attempt to change the `ownerId` of an existing matter.
-11. **Resource Exhaustion**: Sending a 10MB `narrative` string.
-12. **Method Bypass**: Attempting a `delete` on an active litigation matter.
+1. **Identity Spoofing**: `User` attempts to create an `Intake` for another user's `clientId`.
+2. **Role Hijacking**: A `USER` attempts to update their own `role` to `ADMIN`.
+3. **Counsel Leak**: `LEGAL_COUNSEL` attempts to read `governance_settings` without administrative permissions.
+4. **Compliance Bypass**: `EXECUTIVE` attempts to approve a `proposal` bypassing the `COMPLIANCE_OFFICER` gate.
+5. **Ghost Field Injection**: Adding `is_flagged: false` to a `matters` update during a client response.
+6. **State Jumper**: Moving a `proposal` from `PENDING` to `APPROVED` without the mandatory 24-hour review period (simulated by timestamp check).
+7. **Scraping Attack**: Running a `list` query on `governance_logs` without applying a `userId` filter.
+8. **Resource Exhaustion**: Sending an `intake` with a `narrative` string exceeding 25k characters.
+9. **Orphaned Writes**: Creating a `matter` pointing to a `serviceId` that does not exist in the system catalog.
+10. **Shadow Log Delete**: A user attempts to delete their own `governance_logs` to hide suspicious activity.
+11. **Metadata Deception**: Setting `risk_level` on an incident as a standard user.
+12. **Method Smuggling**: Using a `batch` write to bypass the `isValidUser` schema validation.
 
 ## 3. Test Runner
 Verification will be performed via `firestore.rules.test.ts` (drafted in the implementation).

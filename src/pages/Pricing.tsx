@@ -4,24 +4,39 @@ import { Check, Zap, Star, Shield, ArrowRight, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
+import { checkout } from '../lib/stripe';
 
 export default function Pricing() {
   const { user, updatePlan, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'yearly'>('yearly');
 
-  const handleSelectPlan = (planId: string) => {
+  const [isProcessing, setIsProcessing] = React.useState<string | null>(null);
+
+  const handleSelectPlan = async (planId: 'monthly' | 'yearly') => {
     if (!isAuthenticated) {
       navigate(`/auth?redirect=pricing`);
       return;
     }
-    const finalPlan = planId === 'free' ? 'free' : (billingCycle === 'yearly' ? 'annual' : 'monthly');
-    updatePlan(finalPlan as any);
-    navigate('/billing');
-  };
 
-  const getPrice = (monthly: string, yearly: string) => {
-    return billingCycle === 'monthly' ? monthly : yearly;
+    setIsProcessing(planId);
+    try {
+      // 1. Determine the correct Stripe Price ID based on selection
+      const priceId = planId === 'monthly' ? 'price_1TSOJLBMbxh6jv0C9aEJBKRt' : 'price_1TSOKGBMbxh6jv0CMhUwlHYX';
+      
+      // 2. Use Intelligent Checkout Helper
+      await checkout(priceId, {
+        serviceId: planId === 'monthly' ? 'PROTOCOL' : 'ELITE_ENTERPRISE',
+        email: user?.email || undefined
+      });
+      
+    } catch (error) {
+      console.error("Checkout initialization failed:", error);
+      // Resilience: Fallback to manual plan update if stripe is unavailable
+      updatePlan(planId === 'monthly' ? 'pro' : 'enterprise');
+      navigate('/billing');
+    } finally {
+      setIsProcessing(null);
+    }
   };
 
   return (
@@ -53,89 +68,35 @@ export default function Pricing() {
           >
             Transparent pricing for high-performance marketing ecosystems. Join 50,000+ marketers scaling with autonomous intelligence.
           </motion.p>
+          <motion.p 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="text-sm font-black text-orange-500 uppercase tracking-widest flex items-center justify-center gap-2"
+          >
+            <Clock size={16} /> All plans start with a 7-day free trial.
+          </motion.p>
         </div>
-
-        {/* Billing Toggle */}
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3 }}
-          className="inline-flex items-center p-1 bg-slate-100 dark:bg-slate-900 rounded-2xl relative"
-        >
-          <button 
-            onClick={() => setBillingCycle('monthly')}
-            className={cn(
-              "px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest z-10 transition-colors",
-              billingCycle === 'monthly' ? "text-slate-900 dark:text-white" : "text-slate-400"
-            )}
-          >
-            Monthly
-          </button>
-          <button 
-            onClick={() => setBillingCycle('yearly')}
-            className={cn(
-              "px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest z-10 transition-colors flex items-center gap-2",
-              billingCycle === 'yearly' ? "text-slate-900 dark:text-white" : "text-slate-400"
-            )}
-          >
-            Yearly <span className="text-[#FF6B00]">Save 20%</span>
-          </button>
-          <motion.div 
-            layoutId="activeCycle"
-            className="absolute inset-y-1 left-1 right-1 bg-white dark:bg-slate-800 rounded-xl shadow-sm"
-            initial={false}
-            animate={{ 
-              x: billingCycle === 'monthly' ? 0 : '100%',
-              width: '50%'
-            }}
-            transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-          />
-        </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
-        {/* Trial Genesis */}
-        <div className="p-10 rounded-[48px] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 space-y-12 h-full flex flex-col">
-           <div className="space-y-6 flex-1">
-              <div className="space-y-2">
-                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Stage 0</h4>
-                 <h3 className="text-3xl font-display font-black text-slate-900 dark:text-white uppercase tracking-tighter">Trial Genesis</h3>
-              </div>
-              <div className="flex items-baseline gap-1">
-                 <span className="text-5xl font-display font-black">$0</span>
-                 <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">/ 7 Days</span>
-              </div>
-              <p className="text-xs text-slate-500 font-medium leading-relaxed">Experience the full power of Flux Agency for 7 days. No feature locking during initialization.</p>
-              <ul className="space-y-4">
-                 {['All AI Strategy Labs', 'Lead Gen Initializer', 'Content Lab Templates', 'Standard Edge Hosting'].map(f => (
-                   <li key={f} className="flex items-center gap-3 text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-wide">
-                      <Check size={14} className="text-emerald-500 shrink-0" /> {f}
-                   </li>
-                 ))}
-              </ul>
-           </div>
-           <button onClick={() => handleSelectPlan('free')} className="w-full py-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
-              <Clock size={16} /> Start Free Trial
-           </button>
-        </div>
-
-        {/* Pro Flux */}
-        <div className="p-10 rounded-[48px] bg-white dark:bg-slate-900 border-2 border-[#FF6B00] shadow-2xl shadow-orange-500/10 space-y-12 h-full flex flex-col relative scale-105 z-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-5xl mx-auto items-stretch">
+        {/* Protocol */}
+        <div className="p-10 rounded-[48px] bg-white dark:bg-slate-900 border-2 border-[#FF6B00] shadow-2xl shadow-orange-500/10 space-y-12 h-full flex flex-col relative z-10 transition-transform hover:scale-[1.02]">
            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#FF6B00] text-white px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest">
-              Most Popular
+              Standard Intelligence
            </div>
            <div className="space-y-6 flex-1">
               <div className="space-y-2">
                  <h4 className="text-[10px] font-black text-[#FF6B00] uppercase tracking-widest pl-1">Stage 1</h4>
-                 <h3 className="text-3xl font-display font-black text-slate-900 dark:text-white uppercase tracking-tighter">Pro Flux</h3>
+                 <h3 className="text-3xl font-display font-black text-slate-900 dark:text-white uppercase tracking-tighter">PROTOCOL</h3>
               </div>
-              <div className="flex items-baseline gap-1 focus-within:">
+              <div className="flex items-baseline gap-1">
                  <span className="text-5xl font-display font-black text-slate-900 dark:text-white">
-                    ${getPrice('24.99', '19.99')}
+                    $19.99
                  </span>
                  <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">/ Month</span>
               </div>
-              <p className="text-xs text-slate-500 font-medium leading-relaxed">Ideal for scaling businesses. Billed {billingCycle}ly. Cancel anytime.</p>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">Everything you need to initiate market dominance. Includes a 7-day free trial on activation.</p>
               <ul className="space-y-4">
                  {['Unlimited Strategy Labs', 'Priority AI Routing', 'Analytics Dashboard', 'Custom Domain Sync', 'Priority Support'].map(f => (
                    <li key={f} className="flex items-center gap-3 text-[10px] font-black text-slate-900 dark:text-slate-200 uppercase tracking-wide">
@@ -144,35 +105,43 @@ export default function Pricing() {
                  ))}
               </ul>
            </div>
-           <button onClick={() => handleSelectPlan('monthly')} className="w-full py-6 bg-[#FF6B00] text-white rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20">
-              Start Pro Protocol
+           <button 
+             disabled={isProcessing === 'monthly'}
+             onClick={() => handleSelectPlan('monthly')} 
+             className="w-full py-6 bg-[#FF6B00] text-white rounded-3xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50"
+           >
+              {isProcessing === 'monthly' ? 'Initializing Secure Protocol...' : 'Subscribe Protocol ($19.99/mo)'}
            </button>
         </div>
 
-        {/* Elite Growth */}
-        <div className="p-10 rounded-[48px] bg-slate-900 text-white space-y-12 h-full flex flex-col">
+        {/* Elite Enterprise */}
+        <div className="p-10 rounded-[48px] bg-slate-900 text-white space-y-12 h-full flex flex-col transition-transform hover:scale-[1.02]">
            <div className="space-y-6 flex-1">
               <div className="space-y-2">
                  <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest pl-1">Stage X</h4>
-                 <h3 className="text-3xl font-display font-black text-white uppercase tracking-tighter">Elite Growth</h3>
+                 <h3 className="text-3xl font-display font-black text-white uppercase tracking-tighter">ELITE ENTERPRISE</h3>
               </div>
               <div className="flex items-baseline gap-1">
                  <span className="text-5xl font-display font-black text-white">
-                    ${getPrice('249.99', '199.99')}
+                    $199.99
                  </span>
-                 <span className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">/ Month</span>
+                 <span className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">/ Year</span>
               </div>
-              <p className="text-xs text-slate-400 font-medium leading-relaxed">Maximum power for enterprise-scale marketing dominance. Advanced API hooks available.</p>
+              <p className="text-xs text-slate-400 font-medium leading-relaxed">Maximum power for enterprise-scale marketing dominance. Advanced API hooks and dedicated nodes.</p>
               <ul className="space-y-4">
-                 {['Everything in Pro', 'White-label Portal', 'Dedicated Strategist', 'V4 Compliance Engine'].map(f => (
+                 {['Everything in Protocol', 'White-label Portal', 'Dedicated Strategist', 'V4 Compliance Engine', '24/7 Neural Support'].map(f => (
                    <li key={f} className="flex items-center gap-3 text-[10px] font-black text-blue-100 uppercase tracking-wide">
                       <Shield size={14} className="text-blue-500 shrink-0" /> {f}
                    </li>
                  ))}
               </ul>
            </div>
-           <button onClick={() => handleSelectPlan('annual')} className="w-full py-5 bg-white text-slate-900 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all">
-              Initialize Elite Tier
+           <button 
+             disabled={isProcessing === 'yearly'}
+             onClick={() => handleSelectPlan('yearly')} 
+             className="w-full py-6 bg-white text-slate-900 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all disabled:opacity-50"
+           >
+              {isProcessing === 'yearly' ? 'Configuring Elite Tier...' : 'Subscribe Elite Enterprise ($199.99/yr)'}
            </button>
         </div>
       </div>

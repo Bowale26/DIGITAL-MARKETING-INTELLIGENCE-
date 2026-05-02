@@ -33,6 +33,7 @@ import { jsPDF } from 'jspdf';
 import { notificationTemplates } from '../data/notificationTemplates';
 import AudioTranscriber from '../components/AudioTranscriber';
 import { dispatchAudit } from '../services/apiService';
+import { useLeads } from '../context/LeadContext';
 
 const data = [
   { name: 'W1', leads: 400, revenue: 2400 },
@@ -58,6 +59,7 @@ const services = [
 export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isTranscriberOpen, setIsTranscriberOpen] = useState(false);
+  const { leads } = useLeads();
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1200);
@@ -147,7 +149,7 @@ export default function Dashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Global Revenue" value="$142,840" change="+24.5%" isUp icon={DollarSign} />
-        <StatCard title="Active Leads" value="2,842" change="+38.2%" isUp icon={Users} />
+        <StatCard title="Active Leads" value={leads.length.toLocaleString()} change="+38.2%" isUp icon={Users} />
         <StatCard title="PPC ROAS" value="4.8x" change="+1.2x" isUp icon={Target} />
         <StatCard title="Ad Spend" value="$24,500" change="-4.3%" isUp={false} icon={TrendingUp} />
       </div>

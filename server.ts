@@ -5,14 +5,80 @@ import cors from "cors";
 import dotenv from "dotenv";
 import Stripe from 'stripe';
 import sgMail from '@sendgrid/mail';
+import admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
+import firebaseConfig from './firebase-applet-config.json' assert { type: 'json' };
 
 import { DevOpsService } from "./src/services/devopsService";
 
 dotenv.config();
 
+// --- FIREBASE ADMIN SETUP ---
+const appInstance = admin.initializeApp({
+  projectId: firebaseConfig.projectId,
+});
+const db = getFirestore(appInstance, firebaseConfig.firestoreDatabaseId);
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Webhook needs raw body - MUST be defined before express.json()
+  app.post("/api/webhooks/stripe", express.raw({ type: 'application/json' }), async (req, res) => {
+    const s = getStripe();
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!s || !endpointSecret) {
+      console.warn("Stripe Webhook: Stripe not configured or secret missing.");
+      return res.sendStatus(400);
+    }
+
+    const sig = req.headers['stripe-signature'];
+    let event;
+
+    try {
+      if (!sig) throw new Error('Missing Stripe signature');
+      event = s.webhooks.constructEvent(req.body, sig, endpointSecret);
+    } catch (err: any) {
+      console.error(`Webhook Error: ${err.message}`);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    if (event.type === 'invoice.payment_succeeded') {
+      const invoice = event.data.object as any;
+      const customerEmail = invoice.customer_email;
+      const subscriptionId = invoice.subscription;
+      const priceId = invoice.lines.data[0].price.id;
+
+      if (customerEmail) {
+        try {
+          const usersRef = db.collection('users');
+          const snapshot = await usersRef.where('email', '==', customerEmail).get();
+          
+          if (!snapshot.empty) {
+            let plan: 'monthly' | 'annual' = 'monthly';
+            if (priceId === 'price_1TSOKGBMbxh6jv0CMhUwlHYX') {
+              plan = 'annual';
+            }
+
+            const batch = db.batch();
+            snapshot.forEach(doc => {
+              batch.update(doc.ref, {
+                plan: plan,
+                stripeSubscriptionId: subscriptionId,
+                status: 'SUBSCRIBED',
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+              });
+            });
+            await batch.commit();
+          }
+        } catch (dbErr) {
+          console.error('Firestore Update Error:', dbErr);
+        }
+      }
+    }
+    res.json({ received: true });
+  });
 
   app.use(express.json());
   app.use(cors());
@@ -43,7 +109,85 @@ async function startServer() {
     res.json({ status: "alive", engine: "flux-core-v1" });
   });
 
-  // Stripe Checkout
+  // Stripe Checkout Sessions (Modern Integration)
+  app.post("/api/create-checkout-session", async (req, res) => {
+    try {
+      const { priceId, email } = req.body;
+      const s = getStripe();
+
+      if (!s) {
+        return res.json({ 
+          sessionId: `mock_session_${Date.now()}`,
+          url: `${req.headers.origin || 'http://localhost:3000'}/success?session_id=mock_session_${Date.now()}`,
+          isMock: true
+        });
+      }
+
+      const session = await s.checkout.sessions.create({
+        customer_email: email,
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: 'subscription',
+        subscription_data: {
+          trial_period_days: 7,
+          metadata: {
+            app_name: "DIGITAL MARKETING INTELLIGENCE"
+          }
+        },
+        success_url: `${req.headers.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${req.headers.origin}/pricing`,
+      });
+
+      res.status(200).json({ sessionId: session.id, url: session.url });
+    } catch (error: any) {
+      console.error("Stripe Checkout Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Alias for Checkout Sessions (per user request)
+  app.post("/api/checkout_sessions", async (req, res) => {
+    try {
+      const { priceId, serviceId, price } = req.body;
+      const s = getStripe();
+
+      if (!s) {
+        return res.json({ 
+          id: `mock_session_${Date.now()}`,
+          url: `${req.headers.origin || 'http://localhost:3000'}/success?session_id=mock_session_${Date.now()}`,
+          isMock: true
+        });
+      }
+
+      const session = await s.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{
+          // If priceId is provided, use it (standard Stripe flow)
+          ...(priceId ? { price: priceId } : {
+            price_data: {
+              currency: 'usd',
+              product_data: { name: `Flux Subscription: ${serviceId || 'Pro Protocol'}` },
+              unit_amount: price || 2499,
+              recurring: { interval: 'month' },
+            },
+          }),
+          quantity: 1,
+        }],
+        mode: 'subscription',
+        subscription_data: {
+          trial_period_days: 7,
+        },
+        success_url: `${req.headers.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${req.headers.origin}/cancel`,
+      });
+
+      res.json({ id: session.id, url: session.url });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Stripe Checkout (legacy)
   app.post("/api/payments/create-checkout", async (req, res) => {
     try {
       const { serviceId, price } = req.body;

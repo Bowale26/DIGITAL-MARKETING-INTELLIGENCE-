@@ -76,9 +76,45 @@
         "scanMode": { "type": "string", "enum": ["ON_DEMAND", "WEEKLY"] },
         "updatedAt": { "type": "string", "format": "date-time" }
       }
+    },
+    "Lead": {
+      "title": "Market Lead",
+      "description": "Prospective clients for enrichment and scoring",
+      "type": "object",
+      "properties": {
+        "companyName": { "type": "string" },
+        "website": { "type": "string" },
+        "status": { "type": "string", "enum": ["qualified", "unqualified", "pending", "contacted"] },
+        "score": { "type": "number" },
+        "enrichedData": { 
+          "type": "object",
+          "properties": {
+            "industry": { "type": "string" },
+            "revenue": { "type": "string" },
+            "employeeCount": { "type": "string" },
+            "techStack": { "type": "array", "items": { "type": "string" } },
+            "summary": { "type": "string" }
+          }
+        },
+        "scoreDetails": {
+          "type": "object",
+          "properties": {
+            "fitScore": { "type": "number" },
+            "intentScore": { "type": "number" },
+            "reasoning": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "owners": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["companyName", "status"]
     }
   },
   "firestore": {
+    "/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Prospects and lead intelligence data"
+    },
     "/users/{userId}": {
       "schema": "User",
       "description": "User profiles for RBAC"
@@ -102,6 +138,22 @@
     "/incidents/{incidentId}": {
       "schema": "Incident",
       "description": "Emergency protocol tracking"
+    },
+    "/products/{productId}": {
+      "schema": "object",
+      "description": "Stripe products synced via extension"
+    },
+    "/products/{productId}/prices/{priceId}": {
+      "schema": "object",
+      "description": "Stripe prices synced via extension"
+    },
+    "/customers/{uid}": {
+      "schema": "object",
+      "description": "Stripe customer data synced via extension"
+    },
+    "/customers/{uid}/subscriptions/{subscriptionId}": {
+      "schema": "object",
+      "description": "User subscriptions managed by Stripe extension"
     }
   }
 }
