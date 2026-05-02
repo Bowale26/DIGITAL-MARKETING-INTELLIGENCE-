@@ -367,24 +367,34 @@ export default function SocialMedia() {
                          </tbody>
                       </table>
                    </div>
+
+                   <div className="card-agency p-8 bg-slate-50 dark:bg-slate-950/50 border-dashed border-2 flex flex-col items-center justify-center text-center space-y-4">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-slate-400">
+                        <Plus size={24} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black uppercase">Onboard New Strategic Partner</h4>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 tracking-widest">Neural compatibility check required</p>
+                      </div>
+                      <button 
+                        onClick={() => handleAction('Propose New Influencer Partnership')}
+                        className="px-6 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all"
+                      >
+                         Initiate Scan
+                      </button>
+                   </div>
                 </motion.div>
               ) : activeTab === 'analytics' ? (
                 <motion.div key="analytics" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
                    <div className="card-agency p-8 space-y-8">
-                      <div className="flex justify-between items-center">
+                      <div className="flex justify-between items-center text-sans">
                          <div>
                             <h3 className="text-xl font-bold uppercase">Engagement Analytics</h3>
                             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Omnichannel Resonance Tracking</p>
                          </div>
-                         <div className="flex gap-4">
-                            <div className="flex items-center gap-2">
-                               <div className="w-2 h-2 rounded-full bg-orange-500" />
-                               <span className="text-[10px] font-black uppercase text-slate-400">Interaction</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                               <div className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700" />
-                               <span className="text-[10px] font-black uppercase text-slate-400">Reach</span>
-                            </div>
+                         <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 rounded-lg">
+                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                            <span className="text-[9px] font-black text-emerald-600 uppercase">Live Feed Active</span>
                          </div>
                       </div>
                       
@@ -461,7 +471,12 @@ export default function SocialMedia() {
                         <BarChart3 size={48} className="text-orange-500" />
                         <h3 className="text-xl font-bold uppercase tracking-tighter italic">Predictive Growth Engine</h3>
                         <p className="text-xs text-slate-500 font-medium leading-relaxed">Based on current neural trends, your omnichannel presence is set to scale 45% in the next quarter.</p>
-                        <button className="px-6 py-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-full text-[9px] font-black uppercase tracking-widest">Generate Full Report</button>
+                        <button 
+                          onClick={() => handleAction('Generate Deep Analytics Report')}
+                          className="px-6 py-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-full text-[9px] font-black uppercase tracking-widest"
+                        >
+                          Generate Full Report
+                        </button>
                     </div>
                    </div>
                 </motion.div>
@@ -481,30 +496,59 @@ export default function SocialMedia() {
                    ))}
                 </motion.div>
               ) : (
-                <motion.div key="crisis" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="card-agency p-10 space-y-8">
-                   <div className="flex items-center justify-between mb-8">
-                      <div className="flex items-center gap-4 text-orange-500">
-                         <AlertTriangle size={32} />
-                         <div>
-                           <h3 className="text-2xl font-bold uppercase tracking-tight">Crisis Protocols</h3>
-                           <p className="text-sm text-slate-500 font-medium">Standard Operating Procedures for Brand Protection.</p>
-                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 rounded-full">
-                         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                         <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600">Sentiment: Stable</span>
-                      </div>
-                   </div>
-                   <div className="space-y-6">
-                      {socialMediaStrategy.crisisProtocol.map((step, i) => (
-                         <div key={i} className="flex items-start gap-6 pb-6 border-b border-slate-100 dark:border-slate-900 last:border-0 last:pb-0">
-                            <span className="w-10 h-10 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center font-bold text-slate-300 shrink-0">{i + 1}</span>
+                <motion.div key="crisis" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
+                   <div className="card-agency p-10 space-y-8">
+                      <div className="flex items-center justify-between mb-8">
+                         <div className="flex items-center gap-4 text-orange-500">
+                            <AlertTriangle size={32} />
                             <div>
-                               <h4 className="font-bold uppercase tracking-widest text-[#FF6B00] text-xs">{step.stage}</h4>
-                               <p className="text-sm text-slate-500 mt-1 font-medium">{step.action}</p>
+                              <h3 className="text-2xl font-bold uppercase tracking-tight">Crisis Protocols</h3>
+                              <p className="text-sm text-slate-500 font-medium">Standard Operating Procedures for Brand Protection.</p>
                             </div>
                          </div>
-                      ))}
+                         <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 rounded-full">
+                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                            <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600">Sentiment: Stable</span>
+                         </div>
+                      </div>
+                      <div className="space-y-6">
+                         {socialMediaStrategy.crisisProtocol.map((step, i) => (
+                            <div key={i} className="flex items-start gap-6 pb-6 border-b border-slate-100 dark:border-slate-900 last:border-0 last:pb-0">
+                               <span className="w-10 h-10 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center font-bold text-slate-300 shrink-0">{i + 1}</span>
+                               <div>
+                                  <h4 className="font-bold uppercase tracking-widest text-[#FF6B00] text-xs">{step.stage}</h4>
+                                  <p className="text-sm text-slate-500 mt-1 font-medium">{step.action}</p>
+                               </div>
+                            </div>
+                         ))}
+                      </div>
+                   </div>
+
+                   <div className="card-agency p-8 space-y-6 bg-slate-900 text-white">
+                      <div className="flex items-center gap-4">
+                         <Zap className="text-orange-500" size={24} />
+                         <h3 className="text-lg font-bold uppercase tracking-tight">Crisis Scenario Simulator</h3>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-relaxed font-medium">Select a scenario to verify automated response readiness and legal alignment.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         {[
+                           'Product Security Breach',
+                           'Negative Viral Backlash',
+                           'Executive Public Scandal',
+                           'Platform Supply Chain Failure'
+                         ].map(scenario => (
+                           <button 
+                             key={scenario}
+                             onClick={() => handleAction(`Simulate Crisis Scenario: ${scenario}`)}
+                             className="p-4 bg-white/5 border border-white/10 rounded-2xl text-left hover:bg-white/10 transition-all group"
+                           >
+                              <div className="flex justify-between items-center">
+                                 <span className="text-[10px] font-black uppercase tracking-widest">{scenario}</span>
+                                 <ChevronRight size={14} className="text-slate-600 group-hover:text-orange-500 transition-all" />
+                              </div>
+                           </button>
+                         ))}
+                      </div>
                    </div>
                 </motion.div>
               )}

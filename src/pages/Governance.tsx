@@ -61,6 +61,7 @@ import {
 import { db, auth } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../context/FirebaseContext';
 import { cn } from '../lib/utils';
+import { clearSystemStorage } from '../services/apiService';
 
 interface StaticRule {
   id: string;
@@ -2257,6 +2258,51 @@ export default function Governance() {
                   </div>
                </div>
             </div>
+          </div>
+
+          {/* Maintenance Section */}
+          <div className="mt-24 pt-24 border-t border-white/5 space-y-12">
+             <div className="max-w-3xl">
+                <h2 className="text-3xl font-display font-black text-white italic tracking-tighter uppercase mb-2">Deep Maintenance Protocol</h2>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                   Initiate a hard reset of all local application states. This process purges LocalStorage, SessionStorage, Cache layers, and unregisters Service Workers. 
+                   <span className="text-rose-500 font-black ml-1 block mt-2 uppercase tracking-widest text-[10px]">Warning: This action will force an immediate system reload and logout.</span>
+                </p>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="p-10 glass-panel rounded-[40px] border-white/10 space-y-6">
+                   <div className="flex items-center gap-4 text-orange-500">
+                      <Zap size={24} />
+                      <h3 className="text-lg font-black uppercase tracking-tight">Standard Purge</h3>
+                   </div>
+                   <p className="text-xs text-slate-500 font-medium">Clears application specific variables and UI state caches without affecting secure API credentials where possible.</p>
+                   <button 
+                     onClick={() => clearSystemStorage()}
+                     className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border border-white/10 hover:bg-white hover:text-slate-950 transition-all shadow-xl"
+                   >
+                      Initiate Standard Purge
+                   </button>
+                </div>
+
+                <div className="p-10 bg-rose-500/5 border border-rose-500/20 rounded-[40px] space-y-6">
+                   <div className="flex items-center gap-4 text-rose-500">
+                      <ShieldAlert size={24} />
+                      <h3 className="text-lg font-black uppercase tracking-tight">Full Neural Scrub</h3>
+                   </div>
+                   <p className="text-xs text-rose-400 font-medium">Destructive reset intended for severe synchronization failures. Manual browser cookie clearing is recommended after this step.</p>
+                   <button 
+                     onClick={async () => {
+                        if (confirm("Proceed with Full Neural Scrub? This will erase all local configurations.")) {
+                           await clearSystemStorage();
+                        }
+                     }}
+                     className="w-full py-4 bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-rose-900/40 hover:brightness-110 active:scale-95 transition-all"
+                   >
+                      Atomic Scrub
+                   </button>
+                </div>
+             </div>
           </div>
 
           {/* Bottom Workflow Timeline */}
