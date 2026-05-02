@@ -15,15 +15,51 @@ import {
   Hash,
   Users,
   Layout,
-  CheckCircle2
+  CheckCircle2,
+  Sparkles,
+  BarChart3,
+  Globe,
+  Scissors
 } from 'lucide-react';
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Cell
+} from 'recharts';
 import { cn } from '../lib/utils';
 import { socialMediaStrategy, toneDefinitions } from '../data/creativeToolsData';
 import { LoyaltyAgentService } from '../services/loyaltyAgentService';
+import { socialAiService, SocialPostVariation } from '../services/socialAiService';
+
+const analyticsData = [
+  { day: 'Mon', engagement: 4500, reach: 12000 },
+  { day: 'Tue', engagement: 5200, reach: 15400 },
+  { day: 'Wed', engagement: 4800, reach: 14200 },
+  { day: 'Thu', engagement: 6100, reach: 18900 },
+  { day: 'Fri', engagement: 5900, reach: 17500 },
+  { day: 'Sat', engagement: 7200, reach: 22100 },
+  { day: 'Sun', engagement: 6800, reach: 21000 },
+];
+
+const influencerData = [
+  { name: '@TechNova', platform: 'Instagram', followers: '1.2M', status: 'Active', roi: '4.2x' },
+  { name: '@SaaS_Master', platform: 'LinkedIn', followers: '450K', status: 'Negotiating', roi: 'N/A' },
+  { name: '@GrowthHacker', platform: 'Twitter', followers: '890K', status: 'Active', roi: '3.8x' },
+];
 
 export default function SocialMedia() {
-  const [activeTab, setActiveTab] = useState<'scheduler' | 'voice' | 'crisis'>('scheduler');
+  const [activeTab, setActiveTab] = useState<'scheduler' | 'voice' | 'crisis' | 'post-lab' | 'analytics' | 'campaigns'>('scheduler');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [postPrompt, setPostPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiVariations, setAiVariations] = useState<SocialPostVariation[]>([]);
 
   const handleAction = async (action: string) => {
     setIsSyncing(true);
@@ -31,8 +67,21 @@ export default function SocialMedia() {
     setIsSyncing(false);
   };
 
+  const handleGeneratePosts = async () => {
+    if (!postPrompt.trim()) return;
+    setIsGenerating(true);
+    try {
+      const results = await socialAiService.generatePostVariations(postPrompt, "Flux Luxury Technical Optimization");
+      setAiVariations(results);
+    } catch (error) {
+      console.error("Post generation failed", error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
-    <div className="max-w-6xl mx-auto space-y-12 pb-24 font-sans text-slate-900 dark:text-white">
+    <div className="max-w-7xl mx-auto space-y-12 pb-24 font-sans text-slate-900 dark:text-white">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 pt-6">
         <div>
@@ -50,28 +99,30 @@ export default function SocialMedia() {
             <Plus size={18} className={cn(isSyncing && "animate-spin")} /> 
             {isSyncing ? 'Deploying...' : 'Schedule Deployment'}
           </button>
-          <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-2xl">
-             {(['scheduler', 'voice', 'crisis'] as const).map(tab => (
-               <button 
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  "px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all",
-                  activeTab === tab ? "bg-[#FF6B00] text-white shadow-lg shadow-orange-500/20" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                )}
-               >
-                 {tab}
-               </button>
-             ))}
-          </div>
         </div>
       </div>
 
+      {/* Primary Navigation Rail */}
+      <div className="flex overflow-x-auto gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-2xl scrollbar-hide">
+         {(['scheduler', 'post-lab', 'campaigns', 'analytics', 'voice', 'crisis'] as const).map(tab => (
+           <button 
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all whitespace-nowrap",
+              activeTab === tab ? "bg-[#FF6B00] text-white shadow-xl shadow-orange-500/20" : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
+            )}
+           >
+             {tab.replace('-', ' ')}
+           </button>
+         ))}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-        <div className="lg:col-span-8 space-y-8">
+        <div className="lg:col-span-8">
            <AnimatePresence mode="wait">
               {activeTab === 'scheduler' ? (
-                <motion.div key="scheduler" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                <motion.div key="scheduler" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
                    <div className="flex items-center justify-between px-2">
                       <h3 className="text-xl font-bold uppercase tracking-tight">Deployment Calendar</h3>
                       <div className="flex gap-2">
@@ -104,8 +155,215 @@ export default function SocialMedia() {
                       </div>
                    </div>
                 </motion.div>
+              ) : activeTab === 'post-lab' ? (
+                <motion.div key="post-lab" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
+                   <div className="card-agency p-8 space-y-6">
+                      <div className="flex items-center gap-4 text-orange-500">
+                         <Sparkles size={24} />
+                         <h3 className="text-xl font-bold uppercase tracking-tight">AI Content Deployment Engine</h3>
+                      </div>
+                      <div className="space-y-4">
+                         <textarea 
+                           placeholder="Describe the campaign topic or value proposition..."
+                           value={postPrompt}
+                           onChange={(e) => setPostPrompt(e.target.value)}
+                           className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-900 rounded-2xl p-6 text-sm outline-none focus:ring-2 focus:ring-orange-500 min-h-[120px] transition-all"
+                         />
+                         <button 
+                           onClick={handleGeneratePosts}
+                           disabled={isGenerating || !postPrompt.trim()}
+                           className="w-full py-4 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-[20px] text-[10px] font-black uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-2"
+                         >
+                            {isGenerating ? (
+                              <>
+                                <Zap className="animate-pulse" size={16} /> 
+                                Calibrating Neural Voice...
+                              </>
+                            ) : 'Generate Post Variations'}
+                         </button>
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {aiVariations.map((v, i) => (
+                        <div key={i} className="card-agency p-6 space-y-4 group">
+                           <div className="flex justify-between items-center">
+                              <span className="px-3 py-1 bg-orange-500/10 text-orange-600 rounded-full text-[9px] font-black uppercase tracking-widest">{v.platform}</span>
+                              <span className="text-[9px] text-slate-400 font-bold uppercase">{v.optimalTime}</span>
+                           </div>
+                           <p className="text-xs leading-relaxed font-medium text-slate-600 dark:text-slate-300">{v.content}</p>
+                           <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-xl space-y-2">
+                              <h5 className="text-[8px] font-black uppercase text-orange-500 tracking-widest">Mandatory CTA</h5>
+                              <p className="text-[10px] font-bold text-slate-900 dark:text-white uppercase">{v.cta}</p>
+                           </div>
+                           <div className="flex flex-wrap gap-2">
+                              {v.hashtags.map(tag => (
+                                <span key={tag} className="text-[10px] font-bold text-blue-500">{tag}</span>
+                              ))}
+                           </div>
+                           <button className="w-full py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">
+                              Deploy to {v.platform}
+                           </button>
+                        </div>
+                      ))}
+                   </div>
+                </motion.div>
+              ) : activeTab === 'campaigns' ? (
+                <motion.div key="campaigns" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="card-agency p-6 bg-slate-900 text-white">
+                         <p className="text-[9px] font-black uppercase tracking-widest text-white/50 mb-2">Total Partnerships</p>
+                         <h4 className="text-3xl font-black italic">142</h4>
+                         <div className="mt-4 flex items-center gap-2 text-emerald-400 text-[10px] font-bold">
+                            <TrendingUp size={12} /> +12% this month
+                         </div>
+                      </div>
+                      <div className="card-agency p-6">
+                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Active Reach</p>
+                         <h4 className="text-3xl font-black italic">4.2M</h4>
+                         <p className="text-[10px] text-slate-500 mt-4 font-bold">Optimized for Conversion</p>
+                      </div>
+                      <div className="card-agency p-6">
+                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Avg. Engagement</p>
+                         <h4 className="text-3xl font-black italic">6.8%</h4>
+                         <p className="text-[10px] text-slate-500 mt-4 font-bold">High Resonance Index</p>
+                      </div>
+                   </div>
+
+                   <div className="card-agency overflow-hidden">
+                      <table className="w-full text-left">
+                         <thead className="bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800">
+                            <tr>
+                               <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Influencer</th>
+                               <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Platform</th>
+                               <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                               <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">ROI</th>
+                            </tr>
+                         </thead>
+                         <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
+                            {influencerData.map((inf, i) => (
+                              <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
+                                 <td className="px-8 py-6">
+                                    <p className="text-sm font-black">{inf.name}</p>
+                                    <p className="text-[10px] font-bold text-slate-400">{inf.followers} Followers</p>
+                                 </td>
+                                 <td className="px-8 py-6">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest">{inf.platform}</span>
+                                 </td>
+                                 <td className="px-8 py-6">
+                                    <span className={cn(
+                                      "text-[8px] font-black px-2 py-1 rounded-md uppercase",
+                                      inf.status === 'Active' ? "bg-emerald-500/10 text-emerald-500" : "bg-orange-500/10 text-orange-600"
+                                    )}>{inf.status}</span>
+                                 </td>
+                                 <td className="px-8 py-6 text-right">
+                                    <p className="text-sm font-black italic">{inf.roi}</p>
+                                 </td>
+                              </tr>
+                            ))}
+                         </tbody>
+                      </table>
+                   </div>
+                </motion.div>
+              ) : activeTab === 'analytics' ? (
+                <motion.div key="analytics" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
+                   <div className="card-agency p-8 space-y-8">
+                      <div className="flex justify-between items-center">
+                         <div>
+                            <h3 className="text-xl font-bold uppercase">Engagement Analytics</h3>
+                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Omnichannel Resonance Tracking</p>
+                         </div>
+                         <div className="flex gap-4">
+                            <div className="flex items-center gap-2">
+                               <div className="w-2 h-2 rounded-full bg-orange-500" />
+                               <span className="text-[10px] font-black uppercase text-slate-400">Interaction</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                               <div className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700" />
+                               <span className="text-[10px] font-black uppercase text-slate-400">Reach</span>
+                            </div>
+                         </div>
+                      </div>
+                      
+                      <div className="h-[350px] w-full">
+                         <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={analyticsData}>
+                               <defs>
+                                  <linearGradient id="colorEngagement" x1="0" y1="0" x2="0" y2="1">
+                                     <stop offset="5%" stopColor="#FF6B00" stopOpacity={0.2}/>
+                                     <stop offset="95%" stopColor="#FF6B00" stopOpacity={0}/>
+                                  </linearGradient>
+                               </defs>
+                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f1f1" />
+                               <XAxis 
+                                 dataKey="day" 
+                                 axisLine={false} 
+                                 tickLine={false} 
+                                 tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} 
+                               />
+                               <YAxis hide />
+                               <Tooltip 
+                                 contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '12px', color: '#fff' }}
+                                 itemStyle={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase' }}
+                               />
+                               <Area 
+                                 type="monotone" 
+                                 dataKey="engagement" 
+                                 stroke="#FF6B00" 
+                                 strokeWidth={3}
+                                 fillOpacity={1} 
+                                 fill="url(#colorEngagement)" 
+                               />
+                               <Area 
+                                 type="monotone" 
+                                 dataKey="reach" 
+                                 stroke="#94a3b8" 
+                                 strokeWidth={2}
+                                 strokeDasharray="5 5"
+                                 fill="transparent" 
+                               />
+                            </AreaChart>
+                         </ResponsiveContainer>
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sans text-xs">
+                    <div className="card-agency p-8 space-y-6">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Platform Performance Distribution</h4>
+                        <div className="space-y-4">
+                           {[
+                             { p: 'Instagram', v: 85, color: '#FF6B00' },
+                             { p: 'TikTok', v: 72, color: '#000000' },
+                             { p: 'LinkedIn', v: 94, color: '#00AEEF' },
+                             { p: 'Twitter/X', v: 45, color: '#ef4444' }
+                           ].map(item => (
+                             <div key={item.p} className="space-y-2">
+                                <div className="flex justify-between items-center text-[10px] font-bold uppercase">
+                                   <span>{item.p}</span>
+                                   <span>{item.v}% Resonance</span>
+                                </div>
+                                <div className="h-1 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden">
+                                   <motion.div 
+                                     initial={{ width: 0 }}
+                                     animate={{ width: `${item.v}%` }}
+                                     className="h-full rounded-full"
+                                     style={{ backgroundColor: item.color }}
+                                   />
+                                </div>
+                             </div>
+                           ))}
+                        </div>
+                    </div>
+                    <div className="card-agency p-8 flex flex-col justify-center items-center space-y-4 text-center">
+                        <BarChart3 size={48} className="text-orange-500" />
+                        <h3 className="text-xl font-bold uppercase tracking-tighter italic">Predictive Growth Engine</h3>
+                        <p className="text-xs text-slate-500 font-medium leading-relaxed">Based on current neural trends, your omnichannel presence is set to scale 45% in the next quarter.</p>
+                        <button className="px-6 py-2 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-full text-[9px] font-black uppercase tracking-widest">Generate Full Report</button>
+                    </div>
+                   </div>
+                </motion.div>
               ) : activeTab === 'voice' ? (
-                <motion.div key="voice" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
+                <motion.div key="voice" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
                    {toneDefinitions.map((tone, i) => (
                      <div key={i} className="card-agency p-8 hover:border-[#00AEEF]/30 transition-all group">
                         <div className="flex justify-between items-start mb-4">
@@ -120,12 +378,18 @@ export default function SocialMedia() {
                    ))}
                 </motion.div>
               ) : (
-                <motion.div key="crisis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card-agency p-10 space-y-8">
-                   <div className="flex items-center gap-4 text-orange-500 mb-8">
-                      <AlertTriangle size={32} />
-                      <div>
-                        <h3 className="text-2xl font-bold uppercase tracking-tight">Crisis Protocols</h3>
-                        <p className="text-sm text-slate-500 font-medium">Standard Operating Procedures for Brand Protection.</p>
+                <motion.div key="crisis" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="card-agency p-10 space-y-8">
+                   <div className="flex items-center justify-between mb-8">
+                      <div className="flex items-center gap-4 text-orange-500">
+                         <AlertTriangle size={32} />
+                         <div>
+                           <h3 className="text-2xl font-bold uppercase tracking-tight">Crisis Protocols</h3>
+                           <p className="text-sm text-slate-500 font-medium">Standard Operating Procedures for Brand Protection.</p>
+                         </div>
+                      </div>
+                      <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 rounded-full">
+                         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                         <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600">Sentiment: Stable</span>
                       </div>
                    </div>
                    <div className="space-y-6">

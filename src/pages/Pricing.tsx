@@ -1,8 +1,8 @@
-import React from 'react';
-import { motion } from 'motion/react';
-import { Check, Zap, Star, Shield, ArrowRight, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Zap, Star, Shield, ArrowRight, Clock, User, Mail, Lock } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useAuth } from '../services/authService';
+import { useAuth, authService } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
 import { checkout } from '../lib/stripe';
 
@@ -11,29 +11,50 @@ export default function Pricing() {
   const navigate = useNavigate();
 
   const [isProcessing, setIsProcessing] = React.useState<string | null>(null);
+  const [isSignUp, setIsSignUp] = useState(true);
+  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [error, setError] = useState<string | null>(null);
 
   const handleSelectPlan = async (planId: 'monthly' | 'yearly') => {
-    if (!isAuthenticated) {
-      navigate(`/auth?redirect=pricing`);
-      return;
-    }
-
+    setError(null);
     setIsProcessing(planId);
+
     try {
-      // 1. Determine the correct Stripe Price ID based on selection
+      // 1. If not authenticated, perform the requested auth action
+      if (!isAuthenticated) {
+        if (isSignUp) {
+          if (!formData.name || !formData.email || !formData.password) {
+            throw new Error("Please complete all registration fields.");
+          }
+          await authService.signUp(formData.email, formData.password, formData.name);
+        } else {
+          if (!formData.email || !formData.password) {
+            throw new Error("Please enter your email and password.");
+          }
+          await authService.signIn(formData.email, formData.password);
+        }
+      }
+
+      // 2. Determine the correct Stripe Price ID based on selection
       const priceId = planId === 'monthly' ? 'price_1TSOJLBMbxh6jv0C9aEJBKRt' : 'price_1TSOKGBMbxh6jv0CMhUwlHYX';
       
-      // 2. Use Intelligent Checkout Helper
+      // 3. Use Intelligent Checkout Helper
       await checkout(priceId, {
         serviceId: planId === 'monthly' ? 'PROTOCOL' : 'ELITE_ENTERPRISE',
-        email: user?.email || undefined
+        email: formData.email || user?.email || undefined
       });
       
-    } catch (error) {
-      console.error("Checkout initialization failed:", error);
-      // Resilience: Fallback to manual plan update if stripe is unavailable
-      updatePlan(planId === 'monthly' ? 'pro' : 'enterprise');
-      navigate('/billing');
+    } catch (err: any) {
+      console.error("Action failed:", err);
+      setError(err.message || "An unexpected error occurred. Please try again.");
+      
+      // If payment fails but user was authenticated, we can fallback
+      if (isAuthenticated || (isSignUp && formData.email)) {
+         setTimeout(() => {
+           updatePlan(planId === 'monthly' ? 'pro' : 'enterprise');
+           navigate('/billing');
+         }, 2000);
+      }
     } finally {
       setIsProcessing(null);
     }
@@ -77,6 +98,107 @@ export default function Pricing() {
             <Clock size={16} /> All plans start with a 7-day free trial.
           </motion.p>
         </div>
+
+        {/* Integrated Auth Module */}
+        {!isAuthenticated && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="max-w-md mx-auto p-8 bg-slate-900 dark:bg-black rounded-[32px] border border-slate-800 shadow-2xl space-y-6"
+          >
+            <div className="flex bg-slate-800 p-1 rounded-2xl relative">
+              <button 
+                onClick={() => setIsSignUp(true)}
+                className={cn(
+                  "flex-1 py-3 text-[10px] font-black uppercase tracking-widest z-10 transition-colors",
+                  isSignUp ? "text-white" : "text-slate-500"
+                )}
+              >
+                Sign Up
+              </button>
+              <button 
+                onClick={() => setIsSignUp(false)}
+                className={cn(
+                  "flex-1 py-3 text-[10px] font-black uppercase tracking-widest z-10 transition-colors",
+                  !isSignUp ? "text-white" : "text-slate-500"
+                )}
+              >
+                Sign In
+              </button>
+              <motion.div 
+                layoutId="authToggle"
+                className="absolute inset-y-1 bg-orange-500 rounded-xl"
+                initial={false}
+                animate={{ 
+                  x: isSignUp ? 0 : '100%',
+                  left: 4,
+                  right: isSignUp ? 'calc(50% + 4px)' : 4,
+                  width: 'calc(50% - 8px)'
+                }}
+                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+              />
+            </div>
+
+            <div className="space-y-4">
+              <AnimatePresence mode="wait">
+                {isSignUp && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="relative"
+                  >
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                    <input 
+                      type="text" 
+                      placeholder="Full Name" 
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className="w-full bg-slate-800 text-white border-0 rounded-2xl pl-12 pr-4 py-4 text-sm font-medium focus:ring-2 focus:ring-orange-500 outline-none transition-all placeholder:text-slate-600"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                <input 
+                  type="email" 
+                  placeholder="Email Address" 
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="w-full bg-slate-800 text-white border-0 rounded-2xl pl-12 pr-4 py-4 text-sm font-medium focus:ring-2 focus:ring-orange-500 outline-none transition-all placeholder:text-slate-600"
+                />
+              </div>
+
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                <input 
+                  type="password" 
+                  placeholder="Secret Key (Password)" 
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  className="w-full bg-slate-800 text-white border-0 rounded-2xl pl-12 pr-4 py-4 text-sm font-medium focus:ring-2 focus:ring-orange-500 outline-none transition-all placeholder:text-slate-600"
+                />
+              </div>
+
+              {error && (
+                <motion.p 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }} 
+                  className="text-[10px] font-black uppercase tracking-widest text-red-500 text-center"
+                >
+                  {error}
+                </motion.p>
+              )}
+            </div>
+            
+            <p className="text-[9px] text-slate-500 font-bold text-center uppercase tracking-widest leading-relaxed">
+              Your identity will be linked to the 7-day free trial protocols.
+            </p>
+          </motion.div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-5xl mx-auto items-stretch">
@@ -106,11 +228,11 @@ export default function Pricing() {
               </ul>
            </div>
            <button 
-             disabled={isProcessing === 'monthly'}
+             disabled={isProcessing !== null}
              onClick={() => handleSelectPlan('monthly')} 
              className="w-full py-6 bg-[#FF6B00] text-white rounded-3xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-all shadow-xl shadow-orange-500/20 disabled:opacity-50"
            >
-              {isProcessing === 'monthly' ? 'Initializing Secure Protocol...' : 'Subscribe Protocol ($19.99/mo)'}
+              {isProcessing === 'monthly' ? 'Initializing Secure Protocol...' : (isSignUp && !isAuthenticated ? 'START 7-DAY FREE TRIAL' : 'SUBSCRIBE MONTHLY')}
            </button>
         </div>
 
@@ -137,11 +259,11 @@ export default function Pricing() {
               </ul>
            </div>
            <button 
-             disabled={isProcessing === 'yearly'}
+             disabled={isProcessing !== null}
              onClick={() => handleSelectPlan('yearly')} 
              className="w-full py-6 bg-white text-slate-900 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all disabled:opacity-50"
            >
-              {isProcessing === 'yearly' ? 'Configuring Elite Tier...' : 'Subscribe Elite Enterprise ($199.99/yr)'}
+              {isProcessing === 'yearly' ? 'Configuring Elite Tier...' : (isSignUp && !isAuthenticated ? 'START 7-DAY FREE TRIAL' : 'SUBSCRIBE YEARLY')}
            </button>
         </div>
       </div>
