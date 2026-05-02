@@ -58,6 +58,10 @@ export default function SocialMedia() {
   const [activeTab, setActiveTab] = useState<'scheduler' | 'voice' | 'crisis' | 'post-lab' | 'analytics' | 'campaigns'>('scheduler');
   const [isSyncing, setIsSyncing] = useState(false);
   const [postPrompt, setPostPrompt] = useState('');
+  const [postTone, setPostTone] = useState('Bold & Technical');
+  const [postLength, setPostLength] = useState<'short' | 'medium' | 'long'>('medium');
+  const [keywordInput, setKeywordInput] = useState('');
+  const [keywords, setKeywords] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiVariations, setAiVariations] = useState<SocialPostVariation[]>([]);
 
@@ -71,13 +75,32 @@ export default function SocialMedia() {
     if (!postPrompt.trim()) return;
     setIsGenerating(true);
     try {
-      const results = await socialAiService.generatePostVariations(postPrompt, "Flux Luxury Technical Optimization");
+      const results = await socialAiService.generatePostVariations(
+        postPrompt, 
+        "Flux Luxury Technical Optimization",
+        {
+          tone: postTone,
+          length: postLength,
+          keywords: keywords
+        }
+      );
       setAiVariations(results);
     } catch (error) {
       console.error("Post generation failed", error);
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const addKeyword = () => {
+    if (keywordInput.trim() && !keywords.includes(keywordInput.trim())) {
+      setKeywords([...keywords, keywordInput.trim()]);
+      setKeywordInput('');
+    }
+  };
+
+  const removeKeyword = (tag: string) => {
+    setKeywords(keywords.filter(k => k !== tag));
   };
 
   return (
@@ -157,29 +180,109 @@ export default function SocialMedia() {
                 </motion.div>
               ) : activeTab === 'post-lab' ? (
                 <motion.div key="post-lab" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
-                   <div className="card-agency p-8 space-y-6">
+                   <div className="card-agency p-8 space-y-8">
                       <div className="flex items-center gap-4 text-orange-500">
                          <Sparkles size={24} />
                          <h3 className="text-xl font-bold uppercase tracking-tight">AI Content Deployment Engine</h3>
                       </div>
-                      <div className="space-y-4">
-                         <textarea 
-                           placeholder="Describe the campaign topic or value proposition..."
-                           value={postPrompt}
-                           onChange={(e) => setPostPrompt(e.target.value)}
-                           className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-900 rounded-2xl p-6 text-sm outline-none focus:ring-2 focus:ring-orange-500 min-h-[120px] transition-all"
-                         />
+                      
+                      <div className="space-y-6">
+                         {/* Core Prompt */}
+                         <div className="space-y-2">
+                           <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Campaign Topic & Goal</label>
+                           <textarea 
+                             placeholder="Describe the campaign topic or value proposition..."
+                             value={postPrompt}
+                             onChange={(e) => setPostPrompt(e.target.value)}
+                             className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-900 rounded-2xl p-6 text-sm outline-none focus:ring-2 focus:ring-orange-500 min-h-[100px] transition-all"
+                           />
+                         </div>
+
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {/* Tone Control */}
+                            <div className="space-y-3">
+                              <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Tactical Tone</label>
+                              <div className="flex flex-wrap gap-2">
+                                {['Bold & Technical', 'Professional', 'Minimalist', 'High-Performance', 'Luxury/Elite'].map(t => (
+                                  <button 
+                                    key={t}
+                                    onClick={() => setPostTone(t)}
+                                    className={cn(
+                                      "px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
+                                      postTone === t ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20" : "bg-slate-50 dark:bg-slate-900 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
+                                    )}
+                                  >
+                                    {t}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Length Control */}
+                            <div className="space-y-3">
+                              <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Constraint: Length</label>
+                              <div className="flex bg-slate-50 dark:bg-slate-900 p-1 rounded-2xl">
+                                {(['short', 'medium', 'long'] as const).map(l => (
+                                  <button 
+                                    key={l}
+                                    onClick={() => setPostLength(l)}
+                                    className={cn(
+                                      "flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
+                                      postLength === l ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm" : "text-slate-400 hover:text-slate-500"
+                                    )}
+                                  >
+                                    {l}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                         </div>
+
+                         {/* Keyword Injector */}
+                         <div className="space-y-3">
+                           <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Neural Keyword Injection</label>
+                           <div className="flex gap-2">
+                             <input 
+                               type="text" 
+                               placeholder="Add mandatory keyword..."
+                               value={keywordInput}
+                               onChange={(e) => setKeywordInput(e.target.value)}
+                               onKeyDown={(e) => e.key === 'Enter' && addKeyword()}
+                               className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-900 rounded-xl px-6 py-3 text-xs outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+                             />
+                             <button 
+                               onClick={addKeyword}
+                               className="px-6 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-xl text-[9px] font-black uppercase tracking-widest"
+                             >
+                               Inject
+                             </button>
+                           </div>
+                           <div className="flex flex-wrap gap-2 min-h-[24px]">
+                             {keywords.map(k => (
+                               <span key={k} className="flex items-center gap-2 px-3 py-1 bg-blue-500/10 text-blue-500 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                 {k}
+                                 <button onClick={() => removeKeyword(k)} className="hover:text-red-500 transition-colors">×</button>
+                               </span>
+                             ))}
+                           </div>
+                         </div>
+
                          <button 
                            onClick={handleGeneratePosts}
                            disabled={isGenerating || !postPrompt.trim()}
-                           className="w-full py-4 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-[20px] text-[10px] font-black uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-2"
+                           className="w-full py-5 bg-orange-600 text-white rounded-[24px] text-[11px] font-black uppercase tracking-[0.3em] shadow-2xl shadow-orange-500/30 disabled:opacity-50 flex items-center justify-center gap-3 active:scale-[0.98] transition-all hover:brightness-110"
                          >
                             {isGenerating ? (
                               <>
-                                <Zap className="animate-pulse" size={16} /> 
-                                Calibrating Neural Voice...
+                                <Zap className="animate-spin" size={18} /> 
+                                Synthesizing Content...
                               </>
-                            ) : 'Generate Post Variations'}
+                            ) : (
+                              <>
+                                <Sparkles size={18} />
+                                Calibrate & Generate Deployment Plan
+                              </>
+                            )}
                          </button>
                       </div>
                    </div>

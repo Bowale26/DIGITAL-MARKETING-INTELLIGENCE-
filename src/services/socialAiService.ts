@@ -19,18 +19,33 @@ export class SocialAiService {
     this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
   }
 
-  public async generatePostVariations(prompt: string, brandVoice: string): Promise<SocialPostVariation[]> {
+  public async generatePostVariations(
+    prompt: string, 
+    brandVoice: string,
+    options?: {
+      tone?: string;
+      length?: 'short' | 'medium' | 'long';
+      keywords?: string[];
+    }
+  ): Promise<SocialPostVariation[]> {
+    const { tone = 'Professional', length = 'medium', keywords = [] } = options || {};
+    
     const response = await this.ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Generate high-performance social media post variations based on the following topic: "${prompt}".
       
-      Brand Voice constraints: ${brandVoice} (Luxury, Technical, High-Performance).
+      Brand Voice base: ${brandVoice}.
+      Applied Tone Override: ${tone}.
+      Desired Length: ${length}.
+      Mandatory Keywords to Include: ${keywords.join(', ') || 'None specified'}.
       
       Requirements:
       1. Provide variations for Instagram (visual-focused), LinkedIn (professional/thought-leadership), and TikTok (engaging/short).
-      2. Each variation MUST include a compelling Call to Action (CTA).
-      3. Suggest 3-5 optimal hashtags per platform.
-      4. Suggest an optimal posting time based on algorithmic trends.`,
+      2. Each variation MUST include a compelling Call to Action (CTA) and adhere to the ${tone} tone.
+      3. The content length should be ${length}.
+      4. Explicitly include keywords: ${keywords.join(', ') || 'N/A'}.
+      5. Suggest 3-5 optimal hashtags per platform.
+      6. Suggest an optimal posting time based on algorithmic trends.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
